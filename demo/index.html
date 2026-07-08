@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AgentIntent Demo</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+    header { background: linear-gradient(135deg, #1a1f2e 0%, #16213e 100%); padding: 2rem; text-align: center; border-bottom: 1px solid #2d3748; }
+    header h1 { font-size: 2rem; color: #63b3ed; margin-bottom: 0.5rem; }
+    header p { color: #a0aec0; font-size: 0.95rem; }
+    .badge { display: inline-block; background: #2d3748; color: #68d391; padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.75rem; margin: 0.25rem; }
+    main { max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+    .card { background: #1a1f2e; border: 1px solid #2d3748; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; }
+    .card h2 { color: #63b3ed; font-size: 1.1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+    .step-badge { background: #2b6cb0; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold; flex-shrink: 0; }
+    label { display: block; color: #a0aec0; font-size: 0.8rem; margin-bottom: 0.3rem; margin-top: 0.75rem; }
+    input, textarea { width: 100%; background: #0f1117; border: 1px solid #2d3748; border-radius: 6px; color: #e2e8f0; padding: 0.6rem 0.8rem; font-size: 0.9rem; font-family: inherit; }
+    input:focus, textarea:focus { outline: none; border-color: #4299e1; }
+    textarea { resize: vertical; min-height: 80px; font-family: 'Courier New', monospace; font-size: 0.8rem; }
+    .btn { display: inline-flex; align-items: center; gap: 0.4rem; background: #2b6cb0; color: white; border: none; border-radius: 8px; padding: 0.65rem 1.2rem; cursor: pointer; font-size: 0.9rem; font-weight: 500; margin-top: 1rem; transition: background 0.2s; }
+    .btn:hover { background: #3182ce; }
+    .btn:disabled { background: #2d3748; color: #718096; cursor: not-allowed; }
+    .btn-danger { background: #c53030; }
+    .btn-danger:hover { background: #e53e3e; }
+    .btn-success { background: #276749; }
+    .btn-success:hover { background: #38a169; }
+    .response-box { margin-top: 1rem; background: #0f1117; border: 1px solid #2d3748; border-radius: 8px; padding: 1rem; }
+    .response-box pre { font-family: 'Courier New', monospace; font-size: 0.8rem; white-space: pre-wrap; word-break: break-all; color: #a0aec0; }
+    .status-ok { color: #68d391; }
+    .status-err { color: #fc8181; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #718096; display: inline-block; margin-right: 0.4rem; }
+    .status-dot.green { background: #68d391; }
+    .status-dot.red { background: #fc8181; }
+    .intent-id-display { background: #0f1117; border: 1px solid #4299e1; border-radius: 6px; padding: 0.5rem 0.8rem; font-family: monospace; color: #63b3ed; font-size: 0.85rem; margin-top: 0.5rem; word-break: break-all; }
+    .flow-arrow { text-align: center; color: #4299e1; font-size: 1.4rem; margin: 0.5rem 0; }
+    footer { text-align: center; padding: 2rem; color: #4a5568; font-size: 0.8rem; }
+    .base-url-bar { background: #2d3748; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+    .base-url-bar label { color: #a0aec0; font-size: 0.8rem; margin: 0; white-space: nowrap; }
+    .base-url-bar input { flex: 1; min-width: 200px; background: #0f1117; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>⚡ AgentIntent Demo</h1>
+  <p>Cryptographic intent registration &amp; verification for autonomous agents</p>
+  <div style="margin-top:0.75rem">
+    <span class="badge">NandaHack 2024</span>
+    <span class="badge">FastAPI</span>
+    <span class="badge">SHA-256 Proofs</span>
+    <span class="badge">No Auth Required</span>
+  </div>
+</header>
+
+<main>
+  <!-- Base URL config -->
+  <div class="base-url-bar">
+    <label>Service Base URL:</label>
+    <input type="text" id="baseUrl" value="https://agentintent.onrender.com" />
+    <button class="btn btn-success" onclick="checkHealth()" id="healthBtn">Check Health</button>
+    <span id="healthStatus"><span class="status-dot" id="healthDot"></span><span id="healthText">unknown</span></span>
+  </div>
+
+  <!-- Step 1: Register -->
+  <div class="card">
+    <h2><span class="step-badge">1</span> Register Intent</h2>
+    <label>Agent ID</label>
+    <input type="text" id="agentId" value="demo-agent-001" />
+    <label>Action</label>
+    <input type="text" id="action" value="authorize_payment" />
+    <label>Target URL</label>
+    <input type="text" id="target" value="https://payment.example.com/transfer" />
+    <label>Parameters (JSON)</label>
+    <textarea id="params">{"amount": 99.99, "currency": "USD", "recipient": "vendor@example.com"}</textarea>
+    <label>TTL (seconds)</label>
+    <input type="number" id="ttl" value="3600" min="60" max="86400" />
+    <br/>
+    <button class="btn" onclick="registerIntent()">Register Intent</button>
+    <div id="registerResult" class="response-box" style="display:none">
+      <pre id="registerPre"></pre>
+    </div>
+    <div id="intentIdDisplay" style="display:none">
+      <label>Saved Intent ID (used in steps 2 &amp; 3):</label>
+      <div class="intent-id-display" id="savedIntentId"></div>
+    </div>
+  </div>
+
+  <div class="flow-arrow">↓</div>
+
+  <!-- Step 2: Get -->
+  <div class="card">
+    <h2><span class="step-badge">2</span> Retrieve Intent</h2>
+    <label>Intent ID</label>
+    <input type="text" id="getIntentId" placeholder="Auto-filled after Step 1" />
+    <button class="btn" onclick="getIntent()">Get Intent</button>
+    <div id="getResult" class="response-box" style="display:none">
+      <pre id="getPre"></pre>
+    </div>
+  </div>
+
+  <div class="flow-arrow">↓</div>
+
+  <!-- Step 3: Verify -->
+  <div class="card">
+    <h2><span class="step-badge">3</span> Verify Cryptographic Proof</h2>
+    <label>Intent ID</label>
+    <input type="text" id="verifyIntentId" placeholder="Auto-filled after Step 1" />
+    <button class="btn btn-success" onclick="verifyIntent()">Verify Proof</button>
+    <div id="verifyResult" class="response-box" style="display:none">
+      <pre id="verifyPre"></pre>
+    </div>
+  </div>
+
+  <!-- Step 4: Revoke -->
+  <div class="card">
+    <h2><span class="step-badge">4</span> Revoke Intent</h2>
+    <label>Intent ID</label>
+    <input type="text" id="revokeIntentId" placeholder="Auto-filled after Step 1" />
+    <button class="btn btn-danger" onclick="revokeIntent()">Revoke Intent</button>
+    <div id="revokeResult" class="response-box" style="display:none">
+      <pre id="revokePre"></pre>
+    </div>
+  </div>
+
+  <!-- Composability Demo -->
+  <div class="card">
+    <h2>🔗 Composability Demo — Payment Orchestrator</h2>
+    <p style="color:#a0aec0;font-size:0.85rem;margin-bottom:0.75rem">
+      The Payment Orchestrator calls AgentIntent to verify the proof before authorizing payment.
+    </p>
+    <label>Orchestrator Base URL</label>
+    <input type="text" id="orchUrl" value="https://payment-orchestrator.onrender.com" />
+    <label>Intent ID (from Step 1)</label>
+    <input type="text" id="orchIntentId" placeholder="Auto-filled after Step 1" />
+    <label>Amount (USD)</label>
+    <input type="number" id="orchAmount" value="99.99" step="0.01" min="0.01" max="10000" />
+    <button class="btn" onclick="orchestrate()">Orchestrate Payment</button>
+    <div id="orchResult" class="response-box" style="display:none">
+      <pre id="orchPre"></pre>
+    </div>
+  </div>
+</main>
+
+<footer>
+  NandaHack 2024 · AgentIntent Service · <a href="https://agentintent.onrender.com/docs" style="color:#4299e1">API Docs</a>
+  · <a href="https://agentintent.onrender.com/SKILL.md" style="color:#4299e1">SKILL.md</a>
+</footer>
+
+<script>
+  const base = () => document.getElementById('baseUrl').value.replace(/\/$/, '');
+
+  function showResult(boxId, preId, statusCode, data) {
+    const box = document.getElementById(boxId);
+    const pre = document.getElementById(preId);
+    box.style.display = 'block';
+    const ok = statusCode >= 200 && statusCode < 300;
+    pre.className = ok ? 'status-ok' : 'status-err';
+    pre.textContent = `HTTP ${statusCode}\n\n${JSON.stringify(data, null, 2)}`;
+  }
+
+  async function apiFetch(url, options = {}) {
+    try {
+      const r = await fetch(url, options);
+      const data = await r.json().catch(() => ({}));
+      return { status: r.status, data };
+    } catch (e) {
+      return { status: 0, data: { error: e.message } };
+    }
+  }
+
+  async function checkHealth() {
+    const btn = document.getElementById('healthBtn');
+    btn.disabled = true; btn.textContent = 'Checking…';
+    const { status, data } = await apiFetch(`${base()}/api/v1/health`);
+    const dot = document.getElementById('healthDot');
+    const text = document.getElementById('healthText');
+    if (status === 200 && data.status === 'healthy') {
+      dot.className = 'status-dot green';
+      text.textContent = `healthy (${data.intents_stored} intents stored)`;
+    } else {
+      dot.className = 'status-dot red';
+      text.textContent = `error ${status}`;
+    }
+    btn.disabled = false; btn.textContent = 'Check Health';
+  }
+
+  function fillIds(intentId) {
+    document.getElementById('savedIntentId').textContent = intentId;
+    document.getElementById('intentIdDisplay').style.display = 'block';
+    ['getIntentId', 'verifyIntentId', 'revokeIntentId', 'orchIntentId'].forEach(id => {
+      document.getElementById(id).value = intentId;
+    });
+  }
+
+  async function registerIntent() {
+    let params;
+    try { params = JSON.parse(document.getElementById('params').value); }
+    catch { alert('Parameters must be valid JSON'); return; }
+
+    const payload = {
+      agent_id: document.getElementById('agentId').value,
+      action: document.getElementById('action').value,
+      target: document.getElementById('target').value,
+      parameters: params,
+      ttl_seconds: parseInt(document.getElementById('ttl').value),
+    };
+
+    const { status, data } = await apiFetch(`${base()}/api/v1/intents/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    showResult('registerResult', 'registerPre', status, data);
+    if (status === 201 && data.intent_id) fillIds(data.intent_id);
+  }
+
+  async function getIntent() {
+    const id = document.getElementById('getIntentId').value.trim();
+    if (!id) { alert('Enter an Intent ID'); return; }
+    const { status, data } = await apiFetch(`${base()}/api/v1/intents/${id}`);
+    showResult('getResult', 'getPre', status, data);
+  }
+
+  async function verifyIntent() {
+    const id = document.getElementById('verifyIntentId').value.trim();
+    if (!id) { alert('Enter an Intent ID'); return; }
+    const { status, data } = await apiFetch(`${base()}/api/v1/intents/${id}/verify`);
+    showResult('verifyResult', 'verifyPre', status, data);
+  }
+
+  async function revokeIntent() {
+    const id = document.getElementById('revokeIntentId').value.trim();
+    if (!id) { alert('Enter an Intent ID'); return; }
+    if (!confirm(`Revoke intent ${id}?`)) return;
+    const { status, data } = await apiFetch(`${base()}/api/v1/intents/${id}`, { method: 'DELETE' });
+    showResult('revokeResult', 'revokePre', status, data);
+  }
+
+  async function orchestrate() {
+    const orchBase = document.getElementById('orchUrl').value.replace(/\/$/, '');
+    const payload = {
+      intent_id: document.getElementById('orchIntentId').value.trim(),
+      action: 'authorize_payment',
+      amount: parseFloat(document.getElementById('orchAmount').value),
+    };
+    if (!payload.intent_id) { alert('Register an intent first (Step 1)'); return; }
+    const { status, data } = await apiFetch(`${orchBase}/api/v1/orchestrate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    showResult('orchResult', 'orchPre', status, data);
+  }
+
+  // Auto-check health on load
+  window.addEventListener('load', checkHealth);
+</script>
+</body>
+</html>
