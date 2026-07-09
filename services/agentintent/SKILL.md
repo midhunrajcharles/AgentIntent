@@ -12,6 +12,13 @@ storage: in-memory (resets on restart)
 
 # AgentIntent
 
+**Base URL:** https://agentintent.onrender.com
+
+One sentence: AgentIntent is a no-auth REST service that gives autonomous agents a tamper-evident
+commitment trail — an agent declares an intent (gets a SHA-256 hash), a counterparty verifies it
+(gets a binding hash), the outcome is recorded, and any breach between declaration and outcome is
+detected automatically.
+
 ## What This Does
 
 AgentIntent gives autonomous agents a **tamper-proof paper trail for decisions before they
