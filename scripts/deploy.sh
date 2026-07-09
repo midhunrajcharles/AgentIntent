@@ -4,7 +4,7 @@ set -e
 echo "=== AgentIntent Deploy Checklist ==="
 
 BASE_URL="${AGENTINTENT_URL:-https://agentintent.onrender.com}"
-ORCH_URL="${ORCHESTRATOR_URL:-https://payment-orchestrator.onrender.com}"
+ORCH_URL="${ORCHESTRATOR_URL:-https://secure-payment-orchestrator.vercel.app}"
 
 # 1. Run tests
 echo "[1/5] Running tests..."

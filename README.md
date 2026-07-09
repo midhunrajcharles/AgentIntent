@@ -14,7 +14,7 @@ audit the full lifecycle after the fact.
 | AgentIntent API | https://agentintent.onrender.com |
 | SKILL.md | https://agentintent.onrender.com/SKILL.md |
 | API Docs | https://agentintent.onrender.com/docs |
-| Payment Orchestrator | https://payment-orchestrator.onrender.com |
+| Payment Orchestrator | https://secure-payment-orchestrator.vercel.app |
 | Demo Page | https://midhunrajcharles.github.io/AgentIntent/ |
 | Repository | https://github.com/midhunrajcharles/AgentIntent |
 

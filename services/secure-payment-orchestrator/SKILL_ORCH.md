@@ -1,5 +1,5 @@
 # Secure Payment Orchestrator — SKILL_ORCH.md
-**Base URL:** https://payment-orchestrator.onrender.com  
+**Base URL:** https://secure-payment-orchestrator.vercel.app  
 **Version:** 1.0.0  
 **Auth:** None  
 **Depends on:** AgentIntent Service at https://agentintent.onrender.com
@@ -15,7 +15,7 @@ from the AgentIntent service. It demonstrates cross-service composability.
 ## Quick Start
 
 ```bash
-ORCH=https://payment-orchestrator.onrender.com
+ORCH=https://secure-payment-orchestrator.vercel.app
 AI=https://agentintent.onrender.com
 
 # Step 1: Register intent with AgentIntent
@@ -103,5 +103,5 @@ Agent
 ## Cold Start
 Both services may sleep on Render free tier. If you get a timeout:
 1. GET `https://agentintent.onrender.com/api/v1/health` — wait for 200
-2. GET `https://payment-orchestrator.onrender.com/api/v1/health` — wait for 200
+2. GET `https://secure-payment-orchestrator.vercel.app/api/v1/health` — wait for 200
 3. Retry orchestrate call

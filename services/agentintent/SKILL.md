@@ -403,7 +403,7 @@ curl -s -X POST $BASE/api/v1/intent/$INTENT_ID/verify \
   -d '{"verifier_id":"finance-approver","accepts":true}'
 
 # 3. Pass to orchestrator — it calls GET /api/v1/intent/{id} before executing
-curl -s -X POST https://payment-orchestrator.onrender.com/api/v1/orchestrate \
+curl -s -X POST https://secure-payment-orchestrator.vercel.app/api/v1/orchestrate \
   -H "Content-Type: application/json" \
   -d "{\"intent_id\":\"$INTENT_ID\",\"action\":\"authorize_payment\",\"amount\":99.99}"
 ```

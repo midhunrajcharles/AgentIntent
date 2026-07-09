@@ -6,7 +6,7 @@
 # ══════════════════════════════════════════════════════
 
 AGENTINTENT_URL="${1:-https://agentintent.onrender.com}"
-ORCHESTRATOR_URL="${2:-https://payment-orchestrator.onrender.com}"
+ORCHESTRATOR_URL="${2:-https://secure-payment-orchestrator.vercel.app}"
 
 echo "🚀 NandaHack Final Verification"
 echo "  AgentIntent:  $AGENTINTENT_URL"

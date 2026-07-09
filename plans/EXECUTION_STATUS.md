@@ -1,7 +1,14 @@
 # NandaHack Execution Status
 
 **Last updated:** 2026-07-09  
-**Overall progress:** 90% — all code/QA complete; only deploy + PR submission remain
+**Overall progress:** 100% — everything deployed, verified live (11/11), PR #131 open
+
+## Live URLs
+- AgentIntent: https://agentintent.onrender.com (Render)
+- Orchestrator: https://secure-payment-orchestrator.vercel.app (Vercel serverless)
+- Demo: https://midhunrajcharles.github.io/AgentIntent/ (GitHub Pages)
+- Phase 1 PR: https://github.com/projnanda/nandatown/pull/131
+- Repo: https://github.com/midhunrajcharles/AgentIntent
 
 ---
 
@@ -9,10 +16,10 @@
 
 | Phase | Name | Score Weight | Status | Notes |
 |-------|------|-------------|--------|-------|
-| 1 | NANDA Town Integration PR | 20% | ✅ COMPLETED | Branch ready; PR pending fork URL |
-| 2 | AgentIntent Core Service | 40% | ✅ COMPLETED | 71/71 tests pass; deploy to Render |
+| 1 | NANDA Town Integration PR | 20% | ✅ COMPLETED | PR #131 open on projnanda/nandatown |
+| 2 | AgentIntent Core Service | 40% | ✅ COMPLETED | Live on Render; 8/8 live checks pass |
 | 3 | SKILL.md Quality | 40% | ✅ COMPLETED | Comprehensive rewrite; all judge sims pass |
-| 4 | Composability Demo | +10% bonus | ⏳ PENDING | Code ready + smoke-tested locally; deploy orchestrator to Render |
+| 4 | Composability Demo | +10% bonus | ✅ COMPLETED | Live on Vercel; cross-provider composition verified |
 
 ---
 
