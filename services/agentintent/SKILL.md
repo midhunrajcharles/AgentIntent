@@ -182,7 +182,7 @@ Register an intent. Returns `intent_id` and `intent_hash`.
   "status":          "pending",
   "intent_hash":     "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "created_at":      "2026-07-08T14:32:00+00:00",
-  "expires_at":      "2026-07-08T14:62:00+00:00",
+  "expires_at":      "2026-07-08T15:02:00+00:00",
   "timeout_seconds": 1800,
   "max_cost":        250.00,
   "message":         "Intent declared. Submit to /verify before proceeding."
