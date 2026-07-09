@@ -15,7 +15,8 @@ audit the full lifecycle after the fact.
 | SKILL.md | https://agentintent.onrender.com/SKILL.md |
 | API Docs | https://agentintent.onrender.com/docs |
 | Payment Orchestrator | https://payment-orchestrator.onrender.com |
-| Demo Page | https://YOUR_GITHUB_USERNAME.github.io/Nandahack-Agentintent/ |
+| Demo Page | https://midhunrajcharles.github.io/AgentIntent/ |
+| Repository | https://github.com/midhunrajcharles/AgentIntent |
 
 ## Quick Start (60 seconds)
 
@@ -64,7 +65,8 @@ State machine: `pending → verified → completed` (or `rejected` / `expired`, 
 services/agentintent/          Main API service (FastAPI)
 services/secure-payment-orchestrator/  Composability demo service
 tests/                         pytest suite (judge simulation + API)
-demo/index.html                GitHub Pages demo (no build required)
+demo/index.html                Interactive demo (single file, no build)
+docs/index.html                Copy of the demo served by GitHub Pages (/docs)
 skills/                        Reference SKILL.md files
 plans/EXECUTION_STATUS.md      Progress tracker
 ```
