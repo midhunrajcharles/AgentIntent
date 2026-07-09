@@ -1,18 +1,25 @@
+"""Secure Payment Orchestrator — composability demo.
+
+Verifies an AgentIntent intent exists and is in a valid state before
+executing any payment action.  Calls the AgentIntent service over HTTP.
 """
-Secure Payment Orchestrator — second service demonstrating composability.
-Verifies an AgentIntent proof before executing any payment action.
-"""
+from __future__ import annotations
+
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
 AGENTINTENT_BASE = os.getenv("AGENTINTENT_BASE_URL", "https://agentintent.onrender.com")
+
+# Statuses that indicate the intent is active (not yet acted upon)
+_VALID_STATUSES = {"pending", "verified"}
 
 
 # ---------------------------------------------------------------------------
@@ -47,7 +54,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Secure Payment Orchestrator",
-    description="Composability demo: verifies AgentIntent proof before executing payment actions.",
+    description="Composability demo: checks AgentIntent status before executing payment actions.",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -55,8 +62,16 @@ app = FastAPI(
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
+@app.exception_handler(RequestValidationError)
+async def _validation_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=422,
+        content={"error": "Validation error", "detail": exc.errors(), "status_code": 422},
+    )
+
+
 @app.exception_handler(Exception)
-async def generic_handler(request: Request, exc: Exception):
+async def _generic_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=500,
         content={"error": "Internal server error", "detail": str(exc), "status_code": 500},
@@ -79,39 +94,62 @@ def health():
 
 @app.post("/api/v1/orchestrate", response_model=OrchestrateResult, status_code=200)
 def orchestrate(payload: OrchestrateRequest):
-    # Step 1: verify intent with AgentIntent service
+    """Check the AgentIntent status for *intent_id* then mock-execute a payment.
+
+    GET ``/api/v1/intent/{id}`` is called on the AgentIntent service.
+    Statuses ``pending`` and ``verified`` are considered active; any other
+    status (``rejected``, ``expired``, ``completed``) causes a rejection.
+    """
+    # --- Step 1: fetch intent from AgentIntent ---
     try:
         with httpx.Client(timeout=30.0) as client:
-            verify_r = client.get(f"{AGENTINTENT_BASE}/api/v1/intents/{payload.intent_id}/verify")
+            intent_r = client.get(f"{AGENTINTENT_BASE}/api/v1/intent/{payload.intent_id}")
     except httpx.ConnectError:
         raise HTTPException(
             status_code=502,
-            detail={"error": "AgentIntent unreachable", "detail": f"Could not connect to {AGENTINTENT_BASE}", "status_code": 502},
+            detail={
+                "error": "AgentIntent unreachable",
+                "detail": f"Could not connect to {AGENTINTENT_BASE}",
+                "status_code": 502,
+            },
         )
     except httpx.TimeoutException:
         raise HTTPException(
             status_code=504,
-            detail={"error": "AgentIntent timeout", "detail": "Verification request timed out (cold start?). Retry in 15s.", "status_code": 504},
+            detail={
+                "error": "AgentIntent timeout",
+                "detail": "Intent lookup timed out (cold start?). Retry in 15s.",
+                "status_code": 504,
+            },
         )
 
-    if verify_r.status_code == 404:
+    if intent_r.status_code == 404:
         raise HTTPException(
             status_code=404,
-            detail={"error": "Intent not found", "detail": f"Intent '{payload.intent_id}' does not exist in AgentIntent", "status_code": 404},
+            detail={
+                "error": "Intent not found",
+                "detail": f"Intent '{payload.intent_id}' does not exist in AgentIntent.",
+                "status_code": 404,
+            },
         )
-
-    if verify_r.status_code != 200:
+    if intent_r.status_code != 200:
         raise HTTPException(
             status_code=502,
-            detail={"error": "Verification failed", "detail": f"AgentIntent returned {verify_r.status_code}", "status_code": 502},
+            detail={
+                "error": "AgentIntent error",
+                "detail": f"AgentIntent returned {intent_r.status_code}",
+                "status_code": 502,
+            },
         )
 
-    verification = verify_r.json()
-    intent_valid = verification.get("valid", False) and verification.get("match", False)
+    intent = intent_r.json()
+    intent_valid = intent.get("status") in _VALID_STATUSES
 
-    # Step 2: mock payment execution (no real payment processed)
-    import hashlib, time
-    tx_id = hashlib.sha256(f"{payload.intent_id}:{payload.action}:{time.time()}".encode()).hexdigest()[:12]
+    # --- Step 2: mock-execute payment ---
+    import hashlib, time as _time
+    tx_id = hashlib.sha256(
+        f"{payload.intent_id}:{payload.action}:{_time.time()}".encode()
+    ).hexdigest()[:12]
 
     return OrchestrateResult(
         intent_id=payload.intent_id,
@@ -122,15 +160,21 @@ def orchestrate(payload: OrchestrateRequest):
         payment_status="authorized" if intent_valid else "rejected",
         transaction_id=tx_id if intent_valid else "NONE",
         timestamp=datetime.now(timezone.utc).isoformat(),
-        message="Payment authorized via verified intent" if intent_valid
-                else "Payment rejected: intent verification failed",
+        message=(
+            f"Payment authorized — intent status '{intent.get('status')}'"
+            if intent_valid
+            else f"Payment rejected — intent status '{intent.get('status')}'"
+        ),
     )
 
 
 @app.get("/SKILL_ORCH.md", response_class=PlainTextResponse, include_in_schema=False)
 def serve_skill_md():
+    # Resolve relative to this module so the route works regardless of the
+    # process working directory (pytest runs from the repo root).
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "SKILL_ORCH.md")
     try:
-        with open("SKILL_ORCH.md", "r", encoding="utf-8") as f:
-            return f.read()
+        with open(path, "r", encoding="utf-8") as fh:
+            return fh.read()
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="SKILL_ORCH.md not found")

@@ -1,138 +1,188 @@
 """
 Judge simulation tests — mirrors exactly what a NandaHack judge agent does.
-These MUST pass 100% for full SKILL.md score.
+Follows the 3-step workflow: declare → verify → complete.
+All tests MUST pass 100% for full SKILL.md score.
 """
+from conftest import DECLARE_PAYLOAD, VERIFY_PAYLOAD, COMPLETE_PAYLOAD
 
 
 class TestJudgeWorkflow:
-    """Judge task sequence: health → register → retrieve → verify."""
+    """Judge task sequence: health → declare → verify → complete → get."""
 
     def test_task0_health_check(self, client):
-        r = client.get("/api/v1/health")
+        r = client.get("/health")
         assert r.status_code == 200
         assert r.json()["status"] == "healthy"
 
-    def test_task1_register_intent(self, client):
-        r = client.post("/api/v1/intents/register", json={
+    def test_task1_declare_intent(self, client):
+        r = client.post("/api/v1/intent/declare", json={
             "agent_id": "judge-agent",
-            "action": "evaluate_submission",
-            "target": "https://hackathon.nanda.ai/evaluate",
-            "parameters": {"team": "NandaHackBot"},
+            "intent_type": "evaluate_submission",
+            "details": {
+                "target": "https://hackathon.nanda.ai/evaluate",
+                "team": "NandaHackBot",
+            },
         })
         assert r.status_code == 201
         data = r.json()
-        assert "intent_id" in data
-        assert data["status"] == "active"
+        assert data["intent_id"].startswith("intent_")
+        assert data["status"] == "pending"
+        assert len(data["intent_hash"]) == 64
 
-    def test_task2_retrieve_intent(self, client):
-        reg = client.post("/api/v1/intents/register", json={
+    def test_task2_verify_intent(self, client):
+        reg = client.post("/api/v1/intent/declare", json={
             "agent_id": "judge-agent",
-            "action": "retrieve_test",
-            "target": "https://example.com",
-            "parameters": {},
+            "intent_type": "verify_submission",
+            "details": {"target": "https://nanda.ai/verify"},
         }).json()
-        r = client.get(f"/api/v1/intents/{reg['intent_id']}")
-        assert r.status_code == 200
-        assert r.json()["intent_id"] == reg["intent_id"]
-
-    def test_task3_verify_proof(self, client):
-        reg = client.post("/api/v1/intents/register", json={
-            "agent_id": "judge-agent",
-            "action": "verify_test",
-            "target": "https://example.com",
-            "parameters": {},
-        }).json()
-        r = client.get(f"/api/v1/intents/{reg['intent_id']}/verify")
+        r = client.post(f"/api/v1/intent/{reg['intent_id']}/verify", json={
+            "verifier_id": "judge-auditor",
+            "accepts": True,
+            "reason": "Submission criteria met",
+        })
         assert r.status_code == 200
         data = r.json()
-        assert data["valid"] is True
-        assert data["match"] is True
+        assert data["status"] == "verified"
+        assert data["accepted"] is True
+        assert len(data["binding_hash"]) == 64
+
+    def test_task3_complete_intent(self, client):
+        reg = client.post("/api/v1/intent/declare", json={
+            "agent_id": "judge-agent",
+            "intent_type": "score_submission",
+            "details": {"target": "https://nanda.ai/score", "team": "NandaHackBot"},
+        }).json()
+        client.post(f"/api/v1/intent/{reg['intent_id']}/verify", json={
+            "verifier_id": "judge-auditor",
+            "accepts": True,
+        })
+        r = client.post(f"/api/v1/intent/{reg['intent_id']}/complete", json={
+            "reporter_id": "judge-agent",
+            "outcome": "fulfilled",
+            "actual_details": {"team": "NandaHackBot"},
+        })
+        assert r.status_code == 200
+        data = r.json()
+        assert data["status"] == "completed"
+        assert data["audit_ready"] is True
+
+    def test_task4_get_audit_trail(self, client):
+        # Full flow, then retrieve and inspect
+        reg = client.post("/api/v1/intent/declare", json={
+            "agent_id": "judge-agent",
+            "intent_type": "audit_trail_test",
+            "details": {"target": "https://nanda.ai/audit"},
+        }).json()
+        iid = reg["intent_id"]
+        client.post(f"/api/v1/intent/{iid}/verify", json={"verifier_id": "j", "accepts": True})
+        client.post(f"/api/v1/intent/{iid}/complete", json={
+            "reporter_id": "judge-agent",
+            "outcome": "fulfilled",
+            "actual_details": {},
+        })
+        r = client.get(f"/api/v1/intent/{iid}")
+        assert r.status_code == 200
+        data = r.json()
+        assert data["status"] == "completed"
+        assert data["audit_ready"] is True
+        events = [e["event"] for e in data["audit_trail"]]
+        assert "declared" in events
+        assert "verified" in events
+        assert "completed" in events
 
     def test_full_judge_sequence_end_to_end(self, client):
         # Health
-        assert client.get("/api/v1/health").json()["status"] == "healthy"
+        assert client.get("/health").json()["status"] == "healthy"
 
-        # Register
-        reg_r = client.post("/api/v1/intents/register", json={
+        # Declare
+        reg_r = client.post("/api/v1/intent/declare", json={
             "agent_id": "judge-full-test",
-            "action": "full_sequence",
-            "target": "https://nanda.ai/judge",
-            "parameters": {"score": 100},
+            "intent_type": "full_sequence",
+            "details": {"target": "https://nanda.ai/judge", "score": 100},
         })
         assert reg_r.status_code == 201
-        intent = reg_r.json()
-        iid = intent["intent_id"]
-
-        # Retrieve
-        get_r = client.get(f"/api/v1/intents/{iid}")
-        assert get_r.status_code == 200
-        assert get_r.json()["agent_id"] == "judge-full-test"
+        iid = reg_r.json()["intent_id"]
 
         # Verify
-        ver_r = client.get(f"/api/v1/intents/{iid}/verify")
+        ver_r = client.post(f"/api/v1/intent/{iid}/verify", json={
+            "verifier_id": "auditor-judge",
+            "accepts": True,
+            "reason": "All criteria satisfied",
+        })
         assert ver_r.status_code == 200
-        assert ver_r.json()["valid"] is True
+        assert ver_r.json()["status"] == "verified"
+
+        # Complete
+        cmp_r = client.post(f"/api/v1/intent/{iid}/complete", json={
+            "reporter_id": "judge-full-test",
+            "outcome": "fulfilled",
+            "actual_details": {"score": 100},
+        })
+        assert cmp_r.status_code == 200
+        assert cmp_r.json()["audit_ready"] is True
+
+        # Retrieve final state
+        get_r = client.get(f"/api/v1/intent/{iid}")
+        assert get_r.status_code == 200
+        assert get_r.json()["status"] == "completed"
 
     def test_judge_error_recovery_bad_id(self, client):
-        r = client.get("/api/v1/intents/INVALID_JUDGE_ID_9999")
+        r = client.get("/api/v1/intent/intent_INVALID_9999")
         assert r.status_code == 404
         data = r.json()
         assert "error" in data or "detail" in data
 
-    def test_demo_intent_always_available(self, client):
-        """Demo intent seeded at startup — judges can test without registering."""
-        # Re-seed manually since store is cleared between tests
-        from utils import store_intent
-        from models import IntentRecord
-        from utils import generate_proof_hash, build_proof_data
-        from datetime import datetime, timezone, timedelta
-        now = datetime.now(timezone.utc)
-        demo_id = "demo0000000001"
-        proof_data = build_proof_data(demo_id, "demo-agent", "demo_action",
-                                      "https://example.com", {"demo": True}, now)
-        store_intent(IntentRecord(
-            intent_id=demo_id,
-            agent_id="demo-agent",
-            action="demo_action",
-            target="https://example.com",
-            parameters={"demo": True},
-            status="active",
-            created_at=now,
-            expires_at=now + timedelta(hours=24),
-            proof_hash=generate_proof_hash(proof_data),
-        ))
-        r = client.get(f"/api/v1/intents/{demo_id}")
+    def test_demo_intent_always_available(self, client, demo_intent):
+        r = client.get("/api/v1/intent/intent_demo000000")
         assert r.status_code == 200
+        assert r.json()["status"] == "pending"
 
 
 class TestJudgeEdgeCases:
-    def test_register_with_all_optional_fields(self, client):
-        r = client.post("/api/v1/intents/register", json={
+    def test_declare_with_all_optional_fields(self, client):
+        r = client.post("/api/v1/intent/declare", json={
             "agent_id": "edge-agent",
-            "action": "edge_action",
-            "target": "https://edge.example.com",
-            "parameters": {"nested": {"key": "value"}, "list": [1, 2, 3]},
-            "ttl_seconds": 7200,
-            "metadata": {"env": "test", "version": 2},
+            "intent_type": "edge_action",
+            "details": {
+                "target": "https://edge.example.com",
+                "nested": {"key": "value"},
+                "list": [1, 2, 3],
+            },
+            "max_cost": 250.0,
+            "timeout_seconds": 7200,
         })
         assert r.status_code == 201
 
-    def test_register_minimum_fields(self, client):
-        r = client.post("/api/v1/intents/register", json={
+    def test_declare_minimum_fields(self, client):
+        r = client.post("/api/v1/intent/declare", json={
             "agent_id": "min-agent",
-            "action": "min_action",
-            "target": "https://min.example.com",
+            "intent_type": "min_action",
+            "details": {"action": "test"},
         })
         assert r.status_code == 201
 
-    def test_verify_after_revoke_shows_invalid(self, client):
-        reg = client.post("/api/v1/intents/register", json={
-            "agent_id": "revoke-test",
-            "action": "test",
-            "target": "https://example.com",
-            "parameters": {},
+    def test_verify_then_complete_shows_no_breach(self, client):
+        reg = client.post("/api/v1/intent/declare", json={
+            "agent_id": "breach-test",
+            "intent_type": "test_no_breach",
+            "details": {"target": "https://example.com", "amount": 100},
         }).json()
-        client.delete(f"/api/v1/intents/{reg['intent_id']}")
-        ver = client.get(f"/api/v1/intents/{reg['intent_id']}/verify").json()
-        assert ver["valid"] is False
-        assert ver["status"] == "revoked"
+        iid = reg["intent_id"]
+        client.post(f"/api/v1/intent/{iid}/verify", json={"verifier_id": "v", "accepts": True})
+        # actual_details must match declared details (including target) for no breach
+        data = client.post(f"/api/v1/intent/{iid}/complete", json={
+            "reporter_id": "breach-test",
+            "outcome": "fulfilled",
+            "actual_details": {"target": "https://example.com", "amount": 100},
+        }).json()
+        assert data["breach_report"]["breach_detected"] is False
+
+    def test_reject_then_cannot_complete(self, client):
+        reg = client.post("/api/v1/intent/declare", json={
+            "agent_id": "reject-test",
+            "intent_type": "test_reject",
+            "details": {"target": "https://example.com"},
+        }).json()
+        iid = reg["intent_id"]
+        client.post(f"/api/v1/intent/{iid}/verify", json={"verifier_id": "v", "accepts": False})
+        assert client.post(f"/api/v1/intent/{iid}/complete", json=COMPLETE_PAYLOAD).status_code == 400

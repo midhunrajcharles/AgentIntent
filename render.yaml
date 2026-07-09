@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: agentintent
+    runtime: python
+    rootDir: services/agentintent
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+    healthCheckPath: /health
+    plan: free
+
+  - type: web
+    name: payment-orchestrator
+    runtime: python
+    rootDir: services/secure-payment-orchestrator
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: AGENTINTENT_BASE_URL
+        value: https://agentintent.onrender.com
+    healthCheckPath: /api/v1/health
+    plan: free

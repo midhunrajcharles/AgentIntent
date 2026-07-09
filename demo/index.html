@@ -14,10 +14,11 @@
     main { max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
     .card { background: #1a1f2e; border: 1px solid #2d3748; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; }
     .card h2 { color: #63b3ed; font-size: 1.1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+    .card .hint { color: #a0aec0; font-size: 0.85rem; margin-bottom: 0.75rem; }
     .step-badge { background: #2b6cb0; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold; flex-shrink: 0; }
     label { display: block; color: #a0aec0; font-size: 0.8rem; margin-bottom: 0.3rem; margin-top: 0.75rem; }
-    input, textarea { width: 100%; background: #0f1117; border: 1px solid #2d3748; border-radius: 6px; color: #e2e8f0; padding: 0.6rem 0.8rem; font-size: 0.9rem; font-family: inherit; }
-    input:focus, textarea:focus { outline: none; border-color: #4299e1; }
+    input, textarea, select { width: 100%; background: #0f1117; border: 1px solid #2d3748; border-radius: 6px; color: #e2e8f0; padding: 0.6rem 0.8rem; font-size: 0.9rem; font-family: inherit; }
+    input:focus, textarea:focus, select:focus { outline: none; border-color: #4299e1; }
     textarea { resize: vertical; min-height: 80px; font-family: 'Courier New', monospace; font-size: 0.8rem; }
     .btn { display: inline-flex; align-items: center; gap: 0.4rem; background: #2b6cb0; color: white; border: none; border-radius: 8px; padding: 0.65rem 1.2rem; cursor: pointer; font-size: 0.9rem; font-weight: 500; margin-top: 1rem; transition: background 0.2s; }
     .btn:hover { background: #3182ce; }
@@ -45,9 +46,9 @@
 
 <header>
   <h1>⚡ AgentIntent Demo</h1>
-  <p>Cryptographic intent registration &amp; verification for autonomous agents</p>
+  <p>Cryptographic intent declaration, verification &amp; audit for autonomous agents</p>
   <div style="margin-top:0.75rem">
-    <span class="badge">NandaHack 2024</span>
+    <span class="badge">NandaHack 2026</span>
     <span class="badge">FastAPI</span>
     <span class="badge">SHA-256 Proofs</span>
     <span class="badge">No Auth Required</span>
@@ -63,72 +64,97 @@
     <span id="healthStatus"><span class="status-dot" id="healthDot"></span><span id="healthText">unknown</span></span>
   </div>
 
-  <!-- Step 1: Register -->
+  <!-- Step 1: Declare -->
   <div class="card">
-    <h2><span class="step-badge">1</span> Register Intent</h2>
+    <h2><span class="step-badge">1</span> Declare Intent</h2>
+    <p class="hint">The agent commits to what it is about to do and receives a SHA-256 hash of the declaration.</p>
     <label>Agent ID</label>
     <input type="text" id="agentId" value="demo-agent-001" />
-    <label>Action</label>
-    <input type="text" id="action" value="authorize_payment" />
-    <label>Target URL</label>
-    <input type="text" id="target" value="https://payment.example.com/transfer" />
-    <label>Parameters (JSON)</label>
-    <textarea id="params">{"amount": 99.99, "currency": "USD", "recipient": "vendor@example.com"}</textarea>
-    <label>TTL (seconds)</label>
-    <input type="number" id="ttl" value="3600" min="60" max="86400" />
+    <label>Intent Type (lower_snake_case)</label>
+    <input type="text" id="intentType" value="authorize_payment" />
+    <label>Details (JSON — include a "target" URI)</label>
+    <textarea id="details">{"target": "https://payment.example.com/transfer", "amount": 99.99, "currency": "USD", "recipient": "vendor@example.com"}</textarea>
+    <label>Timeout (seconds, 60–86400)</label>
+    <input type="number" id="timeout" value="3600" min="60" max="86400" />
     <br/>
-    <button class="btn" onclick="registerIntent()">Register Intent</button>
-    <div id="registerResult" class="response-box" style="display:none">
-      <pre id="registerPre"></pre>
+    <button class="btn" onclick="declareIntent()">POST /api/v1/intent/declare</button>
+    <div id="declareResult" class="response-box" style="display:none">
+      <pre id="declarePre"></pre>
     </div>
     <div id="intentIdDisplay" style="display:none">
-      <label>Saved Intent ID (used in steps 2 &amp; 3):</label>
+      <label>Saved Intent ID (auto-fills steps 2–4 and the orchestrator):</label>
       <div class="intent-id-display" id="savedIntentId"></div>
     </div>
   </div>
 
   <div class="flow-arrow">↓</div>
 
-  <!-- Step 2: Get -->
+  <!-- Step 2: Verify -->
   <div class="card">
-    <h2><span class="step-badge">2</span> Retrieve Intent</h2>
-    <label>Intent ID</label>
-    <input type="text" id="getIntentId" placeholder="Auto-filled after Step 1" />
-    <button class="btn" onclick="getIntent()">Get Intent</button>
-    <div id="getResult" class="response-box" style="display:none">
-      <pre id="getPre"></pre>
-    </div>
-  </div>
-
-  <div class="flow-arrow">↓</div>
-
-  <!-- Step 3: Verify -->
-  <div class="card">
-    <h2><span class="step-badge">3</span> Verify Cryptographic Proof</h2>
+    <h2><span class="step-badge">2</span> Verify Intent (Counterparty)</h2>
+    <p class="hint">A second agent reviews the declaration and accepts or rejects it. Acceptance produces a binding hash tying the decision to the exact intent.</p>
     <label>Intent ID</label>
     <input type="text" id="verifyIntentId" placeholder="Auto-filled after Step 1" />
-    <button class="btn btn-success" onclick="verifyIntent()">Verify Proof</button>
+    <label>Verifier ID</label>
+    <input type="text" id="verifierId" value="auditor-agent-01" />
+    <label>Decision</label>
+    <select id="accepts">
+      <option value="true" selected>Accept</option>
+      <option value="false">Reject</option>
+    </select>
+    <label>Reason (optional)</label>
+    <input type="text" id="verifyReason" value="Intent matches purchase order PO-4421" />
+    <button class="btn btn-success" onclick="verifyIntent()">POST /api/v1/intent/{id}/verify</button>
     <div id="verifyResult" class="response-box" style="display:none">
       <pre id="verifyPre"></pre>
     </div>
   </div>
 
-  <!-- Step 4: Revoke -->
+  <div class="flow-arrow">↓</div>
+
+  <!-- Step 3: Complete -->
   <div class="card">
-    <h2><span class="step-badge">4</span> Revoke Intent</h2>
+    <h2><span class="step-badge">3</span> Record Outcome</h2>
+    <p class="hint">After executing, the agent records what actually happened. The service compares it against the declaration and flags breaches automatically.</p>
     <label>Intent ID</label>
-    <input type="text" id="revokeIntentId" placeholder="Auto-filled after Step 1" />
-    <button class="btn btn-danger" onclick="revokeIntent()">Revoke Intent</button>
-    <div id="revokeResult" class="response-box" style="display:none">
-      <pre id="revokePre"></pre>
+    <input type="text" id="completeIntentId" placeholder="Auto-filled after Step 1" />
+    <label>Reporter ID</label>
+    <input type="text" id="reporterId" value="demo-agent-001" />
+    <label>Outcome</label>
+    <select id="outcome">
+      <option value="fulfilled" selected>fulfilled</option>
+      <option value="cancelled">cancelled</option>
+      <option value="failed">failed</option>
+      <option value="disputed">disputed</option>
+    </select>
+    <label>Actual Details (JSON — change "amount" to see breach detection fire)</label>
+    <textarea id="actualDetails">{"target": "https://payment.example.com/transfer", "amount": 99.99, "currency": "USD", "recipient": "vendor@example.com"}</textarea>
+    <button class="btn" onclick="completeIntent()">POST /api/v1/intent/{id}/complete</button>
+    <div id="completeResult" class="response-box" style="display:none">
+      <pre id="completePre"></pre>
+    </div>
+  </div>
+
+  <div class="flow-arrow">↓</div>
+
+  <!-- Step 4: Status / audit trail -->
+  <div class="card">
+    <h2><span class="step-badge">4</span> Audit Trail</h2>
+    <p class="hint">Anyone can retrieve the full lifecycle: declaration hash, verification binding, outcome, and breach report. Try the always-available seed intent <code>intent_demo000000</code>.</p>
+    <label>Intent ID</label>
+    <input type="text" id="getIntentId" placeholder="Auto-filled after Step 1 — or use intent_demo000000" />
+    <button class="btn" onclick="getIntent()">GET /api/v1/intent/{id}</button>
+    <div id="getResult" class="response-box" style="display:none">
+      <pre id="getPre"></pre>
     </div>
   </div>
 
   <!-- Composability Demo -->
   <div class="card">
     <h2>🔗 Composability Demo — Payment Orchestrator</h2>
-    <p style="color:#a0aec0;font-size:0.85rem;margin-bottom:0.75rem">
-      The Payment Orchestrator calls AgentIntent to verify the proof before authorizing payment.
+    <p class="hint">
+      A second, independently deployed service. It calls <code>GET /api/v1/intent/{id}</code> on AgentIntent
+      and only authorizes the payment when the intent status is <code>pending</code> or <code>verified</code>.
     </p>
     <label>Orchestrator Base URL</label>
     <input type="text" id="orchUrl" value="https://payment-orchestrator.onrender.com" />
@@ -136,7 +162,7 @@
     <input type="text" id="orchIntentId" placeholder="Auto-filled after Step 1" />
     <label>Amount (USD)</label>
     <input type="number" id="orchAmount" value="99.99" step="0.01" min="0.01" max="10000" />
-    <button class="btn" onclick="orchestrate()">Orchestrate Payment</button>
+    <button class="btn" onclick="orchestrate()">POST /api/v1/orchestrate</button>
     <div id="orchResult" class="response-box" style="display:none">
       <pre id="orchPre"></pre>
     </div>
@@ -144,7 +170,7 @@
 </main>
 
 <footer>
-  NandaHack 2024 · AgentIntent Service · <a href="https://agentintent.onrender.com/docs" style="color:#4299e1">API Docs</a>
+  NandaHack 2026 · AgentIntent Service · <a href="https://agentintent.onrender.com/docs" style="color:#4299e1">API Docs</a>
   · <a href="https://agentintent.onrender.com/SKILL.md" style="color:#4299e1">SKILL.md</a>
 </footer>
 
@@ -166,14 +192,22 @@
       const data = await r.json().catch(() => ({}));
       return { status: r.status, data };
     } catch (e) {
-      return { status: 0, data: { error: e.message } };
+      return { status: 0, data: { error: e.message, hint: 'Service may be cold-starting on Render free tier — retry in ~30s.' } };
     }
+  }
+
+  function postJson(url, payload) {
+    return apiFetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
   }
 
   async function checkHealth() {
     const btn = document.getElementById('healthBtn');
     btn.disabled = true; btn.textContent = 'Checking…';
-    const { status, data } = await apiFetch(`${base()}/api/v1/health`);
+    const { status, data } = await apiFetch(`${base()}/health`);
     const dot = document.getElementById('healthDot');
     const text = document.getElementById('healthText');
     if (status === 200 && data.status === 'healthy') {
@@ -189,54 +223,67 @@
   function fillIds(intentId) {
     document.getElementById('savedIntentId').textContent = intentId;
     document.getElementById('intentIdDisplay').style.display = 'block';
-    ['getIntentId', 'verifyIntentId', 'revokeIntentId', 'orchIntentId'].forEach(id => {
+    ['verifyIntentId', 'completeIntentId', 'getIntentId', 'orchIntentId'].forEach(id => {
       document.getElementById(id).value = intentId;
     });
   }
 
-  async function registerIntent() {
-    let params;
-    try { params = JSON.parse(document.getElementById('params').value); }
-    catch { alert('Parameters must be valid JSON'); return; }
+  function parseJsonField(elementId, label) {
+    try { return JSON.parse(document.getElementById(elementId).value); }
+    catch { alert(`${label} must be valid JSON`); return null; }
+  }
+
+  async function declareIntent() {
+    const details = parseJsonField('details', 'Details');
+    if (details === null) return;
 
     const payload = {
       agent_id: document.getElementById('agentId').value,
-      action: document.getElementById('action').value,
-      target: document.getElementById('target').value,
-      parameters: params,
-      ttl_seconds: parseInt(document.getElementById('ttl').value),
+      intent_type: document.getElementById('intentType').value,
+      details: details,
+      timeout_seconds: parseInt(document.getElementById('timeout').value),
     };
 
-    const { status, data } = await apiFetch(`${base()}/api/v1/intents/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-
-    showResult('registerResult', 'registerPre', status, data);
+    const { status, data } = await postJson(`${base()}/api/v1/intent/declare`, payload);
+    showResult('declareResult', 'declarePre', status, data);
     if (status === 201 && data.intent_id) fillIds(data.intent_id);
+  }
+
+  async function verifyIntent() {
+    const id = document.getElementById('verifyIntentId').value.trim();
+    if (!id) { alert('Enter an Intent ID (declare one in Step 1)'); return; }
+
+    const payload = {
+      verifier_id: document.getElementById('verifierId').value,
+      accepts: document.getElementById('accepts').value === 'true',
+      reason: document.getElementById('verifyReason').value || null,
+    };
+
+    const { status, data } = await postJson(`${base()}/api/v1/intent/${id}/verify`, payload);
+    showResult('verifyResult', 'verifyPre', status, data);
+  }
+
+  async function completeIntent() {
+    const id = document.getElementById('completeIntentId').value.trim();
+    if (!id) { alert('Enter an Intent ID (declare one in Step 1)'); return; }
+    const actualDetails = parseJsonField('actualDetails', 'Actual Details');
+    if (actualDetails === null) return;
+
+    const payload = {
+      reporter_id: document.getElementById('reporterId').value,
+      outcome: document.getElementById('outcome').value,
+      actual_details: actualDetails,
+    };
+
+    const { status, data } = await postJson(`${base()}/api/v1/intent/${id}/complete`, payload);
+    showResult('completeResult', 'completePre', status, data);
   }
 
   async function getIntent() {
     const id = document.getElementById('getIntentId').value.trim();
     if (!id) { alert('Enter an Intent ID'); return; }
-    const { status, data } = await apiFetch(`${base()}/api/v1/intents/${id}`);
+    const { status, data } = await apiFetch(`${base()}/api/v1/intent/${id}`);
     showResult('getResult', 'getPre', status, data);
-  }
-
-  async function verifyIntent() {
-    const id = document.getElementById('verifyIntentId').value.trim();
-    if (!id) { alert('Enter an Intent ID'); return; }
-    const { status, data } = await apiFetch(`${base()}/api/v1/intents/${id}/verify`);
-    showResult('verifyResult', 'verifyPre', status, data);
-  }
-
-  async function revokeIntent() {
-    const id = document.getElementById('revokeIntentId').value.trim();
-    if (!id) { alert('Enter an Intent ID'); return; }
-    if (!confirm(`Revoke intent ${id}?`)) return;
-    const { status, data } = await apiFetch(`${base()}/api/v1/intents/${id}`, { method: 'DELETE' });
-    showResult('revokeResult', 'revokePre', status, data);
   }
 
   async function orchestrate() {
@@ -246,12 +293,8 @@
       action: 'authorize_payment',
       amount: parseFloat(document.getElementById('orchAmount').value),
     };
-    if (!payload.intent_id) { alert('Register an intent first (Step 1)'); return; }
-    const { status, data } = await apiFetch(`${orchBase}/api/v1/orchestrate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+    if (!payload.intent_id) { alert('Declare an intent first (Step 1)'); return; }
+    const { status, data } = await postJson(`${orchBase}/api/v1/orchestrate`, payload);
     showResult('orchResult', 'orchPre', status, data);
   }
 
