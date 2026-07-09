@@ -42,14 +42,14 @@ json_field() {  # json_field '<json>' <key>
 
 # ===== SERVICE 1: HEALTH (exempt from rate limiting) =====
 check "AgentIntent /health returns healthy" \
-  "curl -sf ${AGENTINTENT_URL}/health | grep -q '\"healthy\"'"
+  "curl -m 30 -sf ${AGENTINTENT_URL}/health | grep -q '\"healthy\"'"
 
 # ===== SERVICE 1: SKILL.MD SERVING =====
 check "SKILL.md accessible via HTTP" \
-  "curl -sf ${AGENTINTENT_URL}/SKILL.md | grep -q 'AgentIntent'"
+  "curl -m 30 -sf ${AGENTINTENT_URL}/SKILL.md | grep -q 'AgentIntent'"
 
 # ===== SERVICE 1: DECLARE =====
-DECLARE_RESULT=$(curl -sf -X POST "${AGENTINTENT_URL}/api/v1/intent/declare" \
+DECLARE_RESULT=$(curl -m 30 -sf -X POST "${AGENTINTENT_URL}/api/v1/intent/declare" \
   -H "Content-Type: application/json" \
   -d '{"agent_id":"judge-test-001","intent_type":"authorize_payment","details":{"target":"https://payment.example.com/pay","amount":100,"currency":"USD"},"timeout_seconds":3600}')
 
@@ -59,7 +59,7 @@ check "Declare returns intent_id + intent_hash" \
 INTENT_ID=$(json_field "$DECLARE_RESULT" intent_id)
 
 # ===== SERVICE 1: VERIFY =====
-VERIFY_RESULT=$(curl -sf -X POST "${AGENTINTENT_URL}/api/v1/intent/${INTENT_ID}/verify" \
+VERIFY_RESULT=$(curl -m 30 -sf -X POST "${AGENTINTENT_URL}/api/v1/intent/${INTENT_ID}/verify" \
   -H "Content-Type: application/json" \
   -d '{"verifier_id":"judge-counterparty","accepts":true,"reason":"smoke test"}')
 
@@ -67,7 +67,7 @@ check "Verify produces binding_hash" \
   "echo '$VERIFY_RESULT' | grep -q binding_hash"
 
 # ===== SERVICE 1: COMPLETE (valid outcomes: fulfilled/cancelled/failed/disputed) =====
-COMPLETE_RESULT=$(curl -sf -X POST "${AGENTINTENT_URL}/api/v1/intent/${INTENT_ID}/complete" \
+COMPLETE_RESULT=$(curl -m 30 -sf -X POST "${AGENTINTENT_URL}/api/v1/intent/${INTENT_ID}/complete" \
   -H "Content-Type: application/json" \
   -d '{"reporter_id":"judge-test-001","outcome":"fulfilled","actual_details":{"target":"https://payment.example.com/pay","amount":100,"currency":"USD"}}')
 
@@ -76,25 +76,25 @@ check "Complete includes audit_trail + breach_report" \
 
 # ===== SERVICE 1: AUDIT + ERRORS =====
 check "GET intent returns full audit record" \
-  "curl -sf ${AGENTINTENT_URL}/api/v1/intent/${INTENT_ID} | grep -q audit_trail"
+  "curl -m 30 -sf ${AGENTINTENT_URL}/api/v1/intent/${INTENT_ID} | grep -q audit_trail"
 
 check "404 for invalid intent ID" \
-  "test \"\$(curl -s -o /dev/null -w '%{http_code}' ${AGENTINTENT_URL}/api/v1/intent/fake_id_12345)\" = 404"
+  "test \"\$(curl -m 30 -s -o /dev/null -w '%{http_code}' ${AGENTINTENT_URL}/api/v1/intent/fake_id_12345)\" = 404"
 
 check "Seed demo intent always available" \
-  "curl -sf ${AGENTINTENT_URL}/api/v1/intent/intent_demo000000 | grep -q intent_demo000000"
+  "curl -m 30 -sf ${AGENTINTENT_URL}/api/v1/intent/intent_demo000000 | grep -q intent_demo000000"
 
 # ===== SERVICE 2: HEALTH =====
 check "Orchestrator /api/v1/health returns healthy" \
-  "curl -sf ${ORCHESTRATOR_URL}/api/v1/health | grep -q '\"healthy\"'"
+  "curl -m 30 -sf ${ORCHESTRATOR_URL}/api/v1/health | grep -q '\"healthy\"'"
 
 # ===== SERVICE 2: COMPOSITION (declare fresh intent, then orchestrate) =====
-COMPOSE_INTENT=$(curl -sf -X POST "${AGENTINTENT_URL}/api/v1/intent/declare" \
+COMPOSE_INTENT=$(curl -m 30 -sf -X POST "${AGENTINTENT_URL}/api/v1/intent/declare" \
   -H "Content-Type: application/json" \
   -d '{"agent_id":"orch-smoke","intent_type":"authorize_payment","details":{"target":"https://payment.example.com/pay","amount":75}}')
 COMPOSE_ID=$(json_field "$COMPOSE_INTENT" intent_id)
 
-COMPOSE_RESULT=$(curl -sf -X POST "${ORCHESTRATOR_URL}/api/v1/orchestrate" \
+COMPOSE_RESULT=$(curl -m 30 -sf -X POST "${ORCHESTRATOR_URL}/api/v1/orchestrate" \
   -H "Content-Type: application/json" \
   -d "{\"intent_id\":\"${COMPOSE_ID}\",\"action\":\"authorize_payment\",\"amount\":75.00}")
 
@@ -102,7 +102,7 @@ check "Orchestrator authorizes payment via AgentIntent (composition proof)" \
   "echo '$COMPOSE_RESULT' | grep -q '\"authorized\"' && echo '$COMPOSE_RESULT' | grep -q ${COMPOSE_ID}"
 
 check "Orchestrator 404s for unknown intent" \
-  "test \"\$(curl -s -o /dev/null -w '%{http_code}' -X POST ${ORCHESTRATOR_URL}/api/v1/orchestrate -H 'Content-Type: application/json' -d '{\"intent_id\":\"fake\",\"action\":\"authorize_payment\",\"amount\":10}')\" = 404"
+  "test \"\$(curl -m 30 -s -o /dev/null -w '%{http_code}' -X POST ${ORCHESTRATOR_URL}/api/v1/orchestrate -H 'Content-Type: application/json' -d '{\"intent_id\":\"fake\",\"action\":\"authorize_payment\",\"amount\":10}')\" = 404"
 
 # ===== SUMMARY =====
 echo ""
