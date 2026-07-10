@@ -234,7 +234,6 @@ demo/index.html                          Interactive demo (single file, no build
 docs/index.html                          Copy served by GitHub Pages (/docs)
 scripts/verify-deployment.sh             Live 11-check end-to-end verifier
 render.yaml                              One-command Render blueprint
-plans/EXECUTION_STATUS.md                Progress tracker
 ```
 
 ---

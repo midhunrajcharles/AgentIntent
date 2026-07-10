@@ -10,3 +10,8 @@ venv/
 .coverage
 .pytest_cache/
 .claude/
+
+# internal working files — not part of the submission
+plans/
+skills/
+scripts/demo-video-*.sh
